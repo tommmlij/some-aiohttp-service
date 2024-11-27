@@ -4,3 +4,4 @@
 [![codecov](https://codecov.io/gh/tommmlij/some-aiohttp-service/graph/badge.svg?token=GDLHRPUVCG)](https://codecov.io/gh/tommmlij/some-aiohttp-service)
 ![Static Badge](https://img.shields.io/badge/mypy-checked-blue)
 ![Static Badge](https://img.shields.io/badge/flake8-linted-green)
+

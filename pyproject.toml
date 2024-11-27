@@ -48,6 +48,7 @@ vcs = "git"
 pattern = "^(v|test)((?P<epoch>\\d+)!)?(?P<base>\\d+(\\.\\d+)*)"
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "session"
 asyncio_mode = "auto"
 
 [tool.coverage.run]
