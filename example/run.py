@@ -1,61 +1,41 @@
 import asyncio
 import logging
-import sys
 
-import colorlog
-from aiohttp import web
-from aiohttp.web_exceptions import HTTPOk
+from aiohttp.web import Application, get, run_app
+from aiohttp.web_exceptions import HTTPOk, HTTPAccepted
 
-from some_aiohttp_service.base_service import BaseService
-from some_aiohttp_service.exceptions import ServiceException
+from some_aiohttp_service import BaseService
 
-FORMAT = (
-    "%(asctime)s - %(process)-5d - %(log_color)s%(levelname)-8s%(reset)s | %(message)s"
-)
+async def some_long_calculation(a, b):
+    await asyncio.sleep(5)
+    return f"Done with {a}/{b}"
 
-handler = colorlog.StreamHandler(stream=sys.stdout)
-handler.setFormatter(colorlog.ColoredFormatter(FORMAT))
+class TestService(BaseService):
+    name = "test"
 
-log = logging.getLogger()
-log.addHandler(handler)
-log.setLevel(logging.DEBUG)
+    @staticmethod
+    async def work(job):
+        return await some_long_calculation(**job.data)
+
+    async def error_handler(self, job, error):
+        logging.error(error)
+
+    async def result_handler(self, job, result):
+        print(result)
 
 
 async def health(_):
     raise HTTPOk
 
-
 async def hello(request):
-    operation = request.match_info["operation"]
-    await request.app["transform"].commit_work({"operation": operation})
-    return web.Response(text="Hello, world")
+    a = request.match_info["a"]
+    b = request.match_info["b"]
+    await request.app["test"].commit_work({"a": a, "b": b})
+    raise HTTPAccepted
 
+app = Application()
+app.add_routes([get("/work/{a}/{b}", hello), get("/health", health)])
 
-class TestError(ServiceException):
-    pass
+app.cleanup_ctx.append(TestService(app).init)
 
-
-class TransformService(BaseService):
-    name = "transform"
-
-    @staticmethod
-    async def work(job):
-        await asyncio.sleep(1)
-        if job.data["operation"] == "fail":
-            raise TestError("Failing job")
-        await asyncio.sleep(1)
-        return f"Returning - {job.data}"
-
-    async def error_handler(self, job, error):
-        log.error(error)
-
-    async def result_handler(self, job, result):
-        log.info(result)
-
-
-app = web.Application()
-app.add_routes([web.get("/{operation}", hello), web.get("/health", health)])
-
-app.cleanup_ctx.append(TransformService(app, overall_timeout=30, throttle=10).init)
-
-web.run_app(app, port=1500, host="0.0.0.0")
+run_app(app)

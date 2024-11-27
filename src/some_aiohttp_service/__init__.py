@@ -1,1 +1,1 @@
-test = 1
+from .base_service import BaseService
