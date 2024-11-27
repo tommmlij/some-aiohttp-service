@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "some-aiohttp-service"
+version = "0.1.0"
+license = "MIT"
+description = "Runner framework for aiohttp"
+authors = ["tommmlij <tommmlij@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/tommmlij/some-aiohttp-service"
+packages = [{ include = "aiohttp_service", from = "src" }]
+
+[tool.poetry.urls]
+"GitHub: issues" = "https://github.com/tommmlij/some-aiohttp-service/issues"
+"GitHub: repo" = "https://github.com/tommmlij/some-aiohttp-service"
+
+[tool.poetry.dependencies]
+python = ">=3.9 <3.13"
+aiohttp = "^3.11"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8"
+flake8 = "^7"
+pytest-asyncio = "^0"
+pytest-aiohttp = "^1"
+colorlog = "^6"
+coverage = "^7"
+mypy = "^1"
+black = "^24"
+isort = "^5"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8"
+flake8 = "^7"
+pytest-asyncio = "^0"
+pytest-aiohttp = "^1"
+colorlog = "^6"
+coverage = "^7"
+mypy = "^1"
+black = "^24"
+isort = "^5"
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+pattern = "^(v|test)((?P<epoch>\\d+)!)?(?P<base>\\d+(\\.\\d+)*)"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+omit = ["./tests/*"]

@@ -1,0 +1,172 @@
+name: CI for some-aiohttp-service
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+', 'test[0-9]+.[0-9]+.[0-9]+']
+
+jobs:
+  linting:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip
+          restore-keys: ${{ runner.os }}-pip
+      - name: Install linter
+        id: linter
+        run: python -m pip install black flake8 isort
+      - name: Flake8
+        id: flake8
+        run: |
+          flake8 . > /tmp/flake8 2>&1 && exit 0
+          echo "# flake8" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/flake8 >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit 1
+        if: always()
+      - name: black
+        run: |
+          black . --check > /tmp/black 2>&1 && exit 0
+          echo "# black" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/black >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit 1
+        if: always()
+      - name: isort
+        run: |
+          isort . -c > /tmp/isort 2>&1 && exit 0
+          echo "# isort" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat /tmp/isort >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          exit 1
+        if: always()
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('**/poetry.lock') }}
+      - name: Install the project dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: |
+          poetry self add "poetry-dynamic-versioning[plugin]"
+          poetry install --with test --no-interaction
+      - name: Typing
+        run: |
+          source .venv/bin/activate
+          cd src
+          mypy -m some_aiohttp_service
+      - name: Run tests and collect coverage
+        run: |
+          source .venv/bin/activate
+          coverage run -m pytest --ignore=tests
+          coverage xml
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .
+          fail_ci_if_error: true
+          files: ./coverage.xml
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs:
+      - linting
+      - test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python 3.12
+        id: setup-python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - name: Build
+        run: |
+          poetry self add "poetry-dynamic-versioning[plugin]"
+          poetry install --no-interaction
+          poetry build
+      - name: Store artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  test-pypi-publish:
+    if: startsWith(github.ref, 'refs/tags/test')
+    name: Upload to TestPyPI
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    environment:
+      name: TestPyPi
+      url: https://test.pypi.org/project/some-aiohttp-service
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Get artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish package distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi-publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    name: Upload to PyPI
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    environment:
+      name: PyPi
+      url: https://pypi.org/project/some-aiohttp-service
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Get artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
