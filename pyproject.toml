@@ -6,7 +6,7 @@ description = "Runner framework for aiohttp"
 authors = ["tommmlij <tommmlij@gmail.com>"]
 readme = "README.md"
 homepage = "https://github.com/tommmlij/some-aiohttp-service"
-packages = [{ include = "aiohttp_service", from = "src" }]
+packages = [{ include = "some_aiohttp_service", from = "src" }]
 
 [tool.poetry.urls]
 "GitHub: issues" = "https://github.com/tommmlij/some-aiohttp-service/issues"
