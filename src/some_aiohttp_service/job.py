@@ -20,7 +20,9 @@ class Job:
         cls._current_id += 1
         return cls._current_id
 
-    def __init__(self, type: JobType = JobType.NORMAL, data: dict = dict, config: dict = dict):
+    def __init__(
+        self, type: JobType = JobType.NORMAL, data: dict = dict, config: dict = dict
+    ):
         self.type = type
         self.id = self._get_next_id()
         self.data = data

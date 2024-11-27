@@ -1,15 +1,17 @@
 import asyncio
 import logging
-import colorlog
 import sys
 
+import colorlog
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPOk
 
 from some_aiohttp_service.base_service import BaseService
 from some_aiohttp_service.exceptions import ServiceException
 
-FORMAT = '%(asctime)s - %(process)-5d - %(log_color)s%(levelname)-8s%(reset)s | %(message)s'
+FORMAT = (
+    "%(asctime)s - %(process)-5d - %(log_color)s%(levelname)-8s%(reset)s | %(message)s"
+)
 
 handler = colorlog.StreamHandler(stream=sys.stdout)
 handler.setFormatter(colorlog.ColoredFormatter(FORMAT))
@@ -24,8 +26,8 @@ async def health(_):
 
 
 async def hello(request):
-    operation = request.match_info['operation']
-    await request.app['transform'].commit_work({'operation': operation})
+    operation = request.match_info["operation"]
+    await request.app["transform"].commit_work({"operation": operation})
     return web.Response(text="Hello, world")
 
 
@@ -34,12 +36,12 @@ class TestError(ServiceException):
 
 
 class TransformService(BaseService):
-    name = 'transform'
+    name = "transform"
 
     @staticmethod
     async def work(job):
         await asyncio.sleep(1)
-        if job.data['operation'] == 'fail':
+        if job.data["operation"] == "fail":
             raise TestError("Failing job")
         await asyncio.sleep(1)
         return f"Returning - {job.data}"
@@ -52,11 +54,8 @@ class TransformService(BaseService):
 
 
 app = web.Application()
-app.add_routes([
-    web.get('/{operation}', hello),
-    web.get('/health', health)
-])
+app.add_routes([web.get("/{operation}", hello), web.get("/health", health)])
 
 app.cleanup_ctx.append(TransformService(app, overall_timeout=30, throttle=10).init)
 
-web.run_app(app, port=1500, host='0.0.0.0')
+web.run_app(app, port=1500, host="0.0.0.0")

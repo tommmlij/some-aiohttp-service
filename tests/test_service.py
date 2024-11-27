@@ -2,12 +2,13 @@ import logging
 
 import pytest
 from aiohttp import web
-from aiohttp.web import View, HTTPAccepted
+from aiohttp.web import HTTPAccepted, View
 
 from some_aiohttp_service.base_service import BaseService
 
+
 class TestService(BaseService):
-    name = 'test'
+    name = "test"
 
     @staticmethod
     async def work(job):
@@ -20,7 +21,7 @@ class TestService(BaseService):
         logging.info(f"Cleanup custom {self.name} service")
 
     async def prepare_job(self, job):
-        logging.info(f"Preparing job")
+        logging.info("Preparing job")
 
     async def error_handler(self, job, error):
         return str(error)
@@ -28,11 +29,12 @@ class TestService(BaseService):
     async def result_handler(self, job, result):
         return result
 
+
 @pytest.mark.asyncio
 async def test_service(caplog, aiohttp_client):
     class TestView1(View):
         async def get(self):
-            await self.request.app['test'].commit_work({'operation': "operation"})
+            await self.request.app["test"].commit_work({"operation": "operation"})
             raise HTTPAccepted(text="Job accepted")
 
     app = web.Application()
@@ -52,5 +54,3 @@ async def test_service(caplog, aiohttp_client):
         assert "Preparing job" in caplog.text
         assert "Cleanup test service" in caplog.text
         assert "Cleanup custom test service" in caplog.text
-
-

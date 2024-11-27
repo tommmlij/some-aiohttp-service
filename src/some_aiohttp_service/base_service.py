@@ -4,14 +4,14 @@ import traceback
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from .exceptions import ServiceNotFoundError, ServiceException
-from .job import JobType, Job
+from .exceptions import ServiceException, ServiceNotFoundError
+from .job import Job, JobType
 
 log = logging.getLogger()
 
 
 class BaseService(ABC):
-    name = 'base'
+    name = "base"
 
     overall_timeout: int
 
@@ -20,7 +20,7 @@ class BaseService(ABC):
     MAX_JOB_REPETITIONS = 10
 
     # Can be process or thread
-    POOL_EXECUTOR = 'thread'
+    POOL_EXECUTOR = "thread"
 
     # If CONCURRENT_WORK is true, multiple jobs can be run at the same time
     CONCURRENT_WORK = False
@@ -34,11 +34,7 @@ class BaseService(ABC):
         cls.job_counter += 1
         return cls.job_counter
 
-    def __init__(self, _app,
-                 worker_count=1,
-                 overall_timeout=3000,
-                 throttle=None
-                 ):
+    def __init__(self, _app, worker_count=1, overall_timeout=3000, throttle=None):
         self.queue = asyncio.Queue()
         self.delayed_jobs = []
         self.app = None
@@ -62,12 +58,12 @@ class BaseService(ABC):
         yield
         self.running = False
         await self._cleanup(app)
-        log.info(f'Closing service {self.name}')
+        log.info(f"Closing service {self.name}")
 
     async def commit_work(self, data):
         future = self.loop.create_future()
         job = Job(data=data, config={})
-        log.debug(f'Service {self.name} - {job}')
+        log.debug(f"Service {self.name} - {job}")
         await self.queue.put((job, future))
         return future
 
@@ -94,22 +90,29 @@ class BaseService(ABC):
 
         try:
             await self._on_job_started(job)
-            result = await asyncio.wait_for(self.work(job), timeout=self.overall_timeout)
-            if isinstance(result, dict) and 'delayed' in result:
+            result = await asyncio.wait_for(
+                self.work(job), timeout=self.overall_timeout
+            )
+            if isinstance(result, dict) and "delayed" in result:
                 # We pull the job from a delayed job or create a new one if there was none
-                if not result.get('repeat_forever', False):
+                if not result.get("repeat_forever", False):
                     job.repetitions += 1
                 if job.repetitions < self.MAX_JOB_REPETITIONS:
-                    log.info(f'Rescheduling job: {job}')
+                    log.info(f"Rescheduling job: {job}")
                     self.delayed_jobs.append((job, response_future))
                 else:
-                    log.info(f'Maximum number of repetitions reached, Failing job: {job}')
+                    log.info(
+                        f"Maximum number of repetitions reached, Failing job: {job}"
+                    )
                     response_future.set_exception(
-                        TimeoutError(f'Maximum number of repetitions reached, Failing job: {job}'))
+                        TimeoutError(
+                            f"Maximum number of repetitions reached, Failing job: {job}"
+                        )
+                    )
 
-            elif isinstance(result, dict) and 'queue' in result:
+            elif isinstance(result, dict) and "queue" in result:
                 try:
-                    await self.app[result['queue']].commit_work(result.get('data', {}))
+                    await self.app[result["queue"]].commit_work(result.get("data", {}))
                 except KeyError:
                     raise ServiceNotFoundError
             else:
@@ -120,10 +123,9 @@ class BaseService(ABC):
                 if self.throttle:
                     await asyncio.sleep(self.throttle)
 
-
         except asyncio.TimeoutError as e:
-            log.warning(f'Timeout during job {job}')
-            await self._on_job_failed(job, f'Timeout during job {job}')
+            log.warning(f"Timeout during job {job}")
+            await self._on_job_failed(job, f"Timeout during job {job}")
             result = e
 
         except ServiceNotFoundError as e:
@@ -133,33 +135,40 @@ class BaseService(ABC):
             result = e
 
         except ServiceException as e:
-            log.warning(f'Service threw an exception')
-            await self._on_job_failed(job, f'Service does not exist')
+            log.warning("Service threw an exception")
+            await self._on_job_failed(job, "Service does not exist")
             result = e
 
         except Exception as e:
             result = await self.error_handler(job, e)
             if result is None:
-                log.warning(f'{e.__class__.__name__} in {self.__class__.__name__} loop', exc_info=True)
+                log.warning(
+                    f"{e.__class__.__name__} in {self.__class__.__name__} loop",
+                    exc_info=True,
+                )
                 log.error(traceback.format_exc())
-                result = f'{e.__class__.__name__}: {str(e)}'
+                result = f"{e.__class__.__name__}: {str(e)}"
             await self._on_job_failed(job, result)
             result = e
 
         finally:
             if self.running and not self.CONCURRENT_WORK:
-                self.tasks[worker_number] = self.loop.create_task(self.start(worker_number))
+                self.tasks[worker_number] = self.loop.create_task(
+                    self.start(worker_number)
+                )
             if isinstance(result, Exception):
                 response_future.set_exception(result)
                 # noinspection PyBroadException
                 try:
                     # Get rid of the future exception never awaited error
                     await response_future
-                except:
+                except Exception as e:
+                    log.debug(f"Exception was already handled: {e}")
                     pass
 
     # If error is handled correctly, error handler should return a string passed to on_job_failed.
-    # If it returns "none", it is considered that error is unpredicted and is printed to warning log and job failed function gets a dict
+    # If it returns "none", it is considered that error is unpredicted and is printed to warning
+    # log and job failed function gets a dict
     # with field error with the string representation of exception
     @abstractmethod
     async def error_handler(self, job, error):
@@ -203,7 +212,7 @@ class BaseService(ABC):
 
     async def _startup(self, app):
         # Put necessary startup stuff here
-        log.info(f'Startup {self.name} service')
+        log.info(f"Startup {self.name} service")
         self.rescheduling_task = asyncio.create_task(self.reschedule_job())
         await self.startup(app)
 
@@ -211,7 +220,7 @@ class BaseService(ABC):
         pass
 
     async def _cleanup(self, app):
-        log.info(f'Cleanup {self.name} service')
+        log.info(f"Cleanup {self.name} service")
 
         # We are terminating the queue with a terminate-job
         for _ in range(self.worker_count):
