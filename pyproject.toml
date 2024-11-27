@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "some-aiohttp-service"
-version = "0.1.6"
+version = "0.1.7"
 license = "MIT"
 description = "Runner framework for aiohttp"
 authors = ["tommmlij <tommmlij@gmail.com>"]
